@@ -1,0 +1,3 @@
+# containers de save do PS4 sao binarios cifrados
+PS4/SAVEDATA/**/* binary -diff -merge
+*.webp binary
