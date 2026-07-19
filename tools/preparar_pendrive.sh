@@ -4,20 +4,44 @@
 #
 # O que faz:
 #  - junta os dois repos numa unica arvore PS4/SAVEDATA/<conta>/
-#  - extrai os titulos guardados em zip dividido (_ZIP)
+#  - remonta os arquivos divididos (.partNN) e confere o SHA256SUMS
 #  - ignora README, assets, tools, index.json e .git (nao vao pro console)
+#
+# Sem os caminhos, assume que este script esta em tools/ dentro de um dos
+# repositorios e procura o outro como pasta irma.
 set -euo pipefail
 
 DEST="${1:?uso: preparar_pendrive.sh <ponto-de-montagem> [repo-I] [repo-II]}"
-R1="${2:-$(dirname "$0")/PS4-Saves-I}"
-R2="${3:-$(dirname "$0")/PS4-Saves-II}"
+
+AQUI=$(cd "$(dirname "$0")" && pwd)
+RAIZ=$(dirname "$AQUI")          # tools/ -> raiz do repositorio
+VIZINHA=$(dirname "$RAIZ")
+
+if [ $# -ge 3 ]; then
+  R1="$2"; R2="$3"
+else
+  R1="$RAIZ"
+  case "$(basename "$RAIZ")" in
+    *-I)  R2="$VIZINHA/$(basename "$RAIZ" | sed 's/-I$/-II/')" ;;
+    *-II) R2="$VIZINHA/$(basename "$RAIZ" | sed 's/-II$/-I/')" ;;
+    *)    R2="" ;;
+  esac
+fi
+
+[ -d "${R1:-}/PS4" ] || { echo "nao achei PS4/ em '$R1'. Passe os caminhos: preparar_pendrive.sh <destino> <repo-I> <repo-II>" >&2; exit 1; }
+if [ -z "${R2:-}" ] || [ ! -d "$R2/PS4" ]; then
+  echo "AVISO: o segundo repositorio nao foi encontrado em '${R2:-<nao definido>}'."
+  echo "       Serao copiados apenas os titulos de $(basename "$R1")."
+  echo "       Para o acervo completo, clone os dois e passe os caminhos."
+  R2=""
+fi
 
 [ -d "$DEST" ] || { echo "destino nao existe: $DEST" >&2; exit 1; }
 
 fs=$(df -T "$DEST" | awk 'NR==2{print $2}')
 livre=$(df -B1 "$DEST" | awk 'NR==2{print $4}')
 preciso=0
-for r in "$R1" "$R2"; do
+for r in "$R1" ${R2:+"$R2"}; do
   preciso=$((preciso + $(du -sb --exclude=.git "$r/PS4" 2>/dev/null | cut -f1)))
 done
 
@@ -31,7 +55,7 @@ case "$fs" in
 esac
 [ "$livre" -lt "$preciso" ] && { echo "ERRO: espaco insuficiente no pendrive." >&2; exit 1; }
 
-for r in "$R1" "$R2"; do
+for r in "$R1" ${R2:+"$R2"}; do
   acct=$(ls "$r/PS4/SAVEDATA" | head -1)
   mkdir -p "$DEST/PS4/SAVEDATA/$acct"
   for t in "$r/PS4/SAVEDATA/$acct"/*/; do
