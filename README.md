@@ -9,12 +9,15 @@ e use *Configurações → Gerenciamento de dados salvos → Armazenamento USB*.
 > Os saves são vinculados à conta `6f5440249bc89152`. Em outra conta exigem
 > re-assinatura (Save Wizard, Apollo ou similar).
 
-Títulos marcados com ⚠️ estão em zip dividido em volumes de 90 MB, porque o
-GitHub rejeita arquivos acima de 100 MB. Para restaurar, junte os volumes antes:
+Títulos marcados com ⚠️ têm arquivos divididos em partes de 90 MB, porque o
+GitHub rejeita arquivos acima de 100 MB. Para restaurar, junte as partes:
 
 ```bash
-zip -s 0 CUSA09209.zip --out completo.zip   # junta .z01, .z02... + .zip
-unzip completo.zip -d CUSA09209
+cd PS4/SAVEDATA/6f5440249bc89152/<CUSA>
+for f in $(ls *.part00 | sed "s/\.part00$//"); do
+  cat "$f".part* > "$f" && rm "$f".part*
+done
+sha256sum -c SHA256SUMS   # confere a integridade
 ```
 
 | | Título | CUSA | Slots | Tamanho |

@@ -52,12 +52,15 @@ peso=$(du -sh --exclude=.git PS4 | cut -f1)
   echo "> Os saves são vinculados à conta \`$ACCT\`. Em outra conta exigem"
   echo "> re-assinatura (Save Wizard, Apollo ou similar)."
   echo
-  echo "Títulos marcados com ⚠️ estão em zip dividido em volumes de 90 MB, porque o"
-  echo "GitHub rejeita arquivos acima de 100 MB. Para restaurar, junte os volumes antes:"
+  echo "Títulos marcados com ⚠️ têm arquivos divididos em partes de 90 MB, porque o"
+  echo "GitHub rejeita arquivos acima de 100 MB. Para restaurar, junte as partes:"
   echo
   echo '```bash'
-  echo "zip -s 0 CUSA09209.zip --out completo.zip   # junta .z01, .z02... + .zip"
-  echo "unzip completo.zip -d CUSA09209"
+  echo "cd PS4/SAVEDATA/$ACCT/<CUSA>"
+  echo 'for f in $(ls *.part00 | sed "s/\.part00$//"); do'
+  echo '  cat "$f".part* > "$f" && rm "$f".part*'
+  echo 'done'
+  echo 'sha256sum -c SHA256SUMS   # confere a integridade'
   echo '```'
   echo
   echo "| | Título | CUSA | Slots | Tamanho |"
@@ -65,11 +68,13 @@ peso=$(du -sh --exclude=.git PS4 | cut -f1)
   for d in PS4/SAVEDATA/$ACCT/*/; do
     cusa=$(basename "$d")
     nome=$(nome_de "$cusa"); [ -z "$nome" ] && nome="(desconhecido)"
-    slots=$(find "$d" -maxdepth 1 -type f -not -name '*.bin' | wc -l)
+    slots=$(find "$d" -maxdepth 1 -type f -not -name '*.bin' -not -name '*.part[0-9][0-9]' -not -name 'SHA256SUMS' | wc -l)
+    # partes divididas contam como 1 slot cada arquivo original
+    slots=$((slots + $(find "$d" -maxdepth 1 -name '*.part00' | wc -l)))
     mb=$(find "$d" -maxdepth 1 -type f -printf '%s\n' | awk '{s+=$1} END{printf "%.1f", s/1048576}')
     ic=$(icone_de "$cusa")
     if [ -n "$ic" ]; then img="<img src=\"$ic\" width=\"60\">"; else img=""; fi
-    case "$cusa" in *_ZIP) nome="$nome ⚠️ zip dividido"; cusa=$(cusa_de "$cusa");; esac
+    [ -f "$d/SHA256SUMS" ] && nome="$nome ⚠️ arquivos divididos"
     echo "| $img | $nome | \`$cusa\` | $slots | ${mb} MB |"
   done
   echo
